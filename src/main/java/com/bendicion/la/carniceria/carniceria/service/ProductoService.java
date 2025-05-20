@@ -22,6 +22,9 @@ public class ProductoService implements IProductoService {
 
     @Autowired
     private ProductoRepository productoRepo;
+    
+    @Autowired
+    private CloudinaryService cloudinaryService; // Nuevo servicio
 
     @Override
     @Transactional
@@ -47,10 +50,7 @@ public class ProductoService implements IProductoService {
         }
         if (producto.getCategoria() == null || producto.getCategoria().getIdCategoria() <= 0) {
             throw new IllegalArgumentException("La categoría es inválida");
-        }
-        if (producto.getImgProducto() == null || (!producto.getImgProducto().endsWith(".jpg") && !producto.getImgProducto().endsWith(".png") && !producto.getImgProducto().endsWith(".jpeg"))) {
-            throw new IllegalArgumentException("Formato de imagen inválido. Debe ser .jpg, .png o .jpeg");
-        }
+        }     
 
         productoRepo.saveProcedureProducto(
                 producto.getNombreProducto(),
@@ -99,10 +99,7 @@ public class ProductoService implements IProductoService {
         }
         if (producto.getCategoria() != null && producto.getCategoria().getIdCategoria() <= 0) {
             throw new IllegalArgumentException("La categoría es inválida");
-        }
-        if (producto.getImgProducto() != null && (!producto.getImgProducto().endsWith(".jpg") && !producto.getImgProducto().endsWith(".png") && !producto.getImgProducto().endsWith(".jpeg"))) {
-            throw new IllegalArgumentException("Formato de imagen inválido. Debe ser .jpg, .png o .jpeg");
-        }
+        }      
 
         productoRepo.updateProcedureProducto(
                 producto.getIdProducto(),
@@ -132,14 +129,17 @@ public class ProductoService implements IProductoService {
         try {
             Producto producto = productoRepo.findById(idProducto).orElse(null);
             if (producto == null) {
-                System.out.println("Producto con ID " + idProducto + " no encontrado.");
                 return false;
             }
+
+            // Eliminar la imagen de Cloudinary
+            if (producto.getImgProducto() != null) {
+                cloudinaryService.deleteFile(producto.getImgProducto());
+            }
+
             productoRepo.deleteProcedureProducto(idProducto);
             return true;
         } catch (Exception e) {
-            System.out.println("Error al eliminar el producto con ID: " + idProducto);
-            e.printStackTrace();
             return false;
         }
     }

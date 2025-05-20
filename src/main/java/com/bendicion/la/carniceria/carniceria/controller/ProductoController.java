@@ -30,6 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.bendicion.la.carniceria.carniceria.domain.Categoria;
 import com.bendicion.la.carniceria.carniceria.domain.Producto;
+import com.bendicion.la.carniceria.carniceria.service.CloudinaryService;
 import com.bendicion.la.carniceria.carniceria.service.ProductoService;
 
 @RestController
@@ -37,7 +38,8 @@ import com.bendicion.la.carniceria.carniceria.service.ProductoService;
 @RequestMapping("/producto")
 public class ProductoController {
 
-    private static final String IMAGE_DIRECTORY = "src/main/resources/static/images";
+     @Autowired
+    private CloudinaryService cloudinaryService; // Nuevo servicio
 
     @Autowired
     private ProductoService productoService;
@@ -85,48 +87,9 @@ public class ProductoController {
         }
 
         try {
-
-            File directory = new File(IMAGE_DIRECTORY);
-
-            System.out.println("Directorio de imágenes: " + directory.getAbsolutePath());
-            System.out.println("Directorio existe: " + directory.exists());
-            System.out.println("Directorio es directorio: " + directory.isDirectory());
-            System.out.println("Directorio tiene permisos de escritura: " + directory.canWrite());
-
-            if (!directory.exists()) {
-                boolean created = directory.mkdirs();
-                System.out.println("Directorio creado: " + created);
-
-                if (!created) {
-                    throw new IOException("No se pudo crear el directorio de imágenes: " + directory.getAbsolutePath());
-                }
-            }
-
-            System.out.println("Archivo recibido: " + file.getOriginalFilename());
-            System.out.println("Tipo de archivo: " + file.getContentType());
-            System.out.println("Tamaño de archivo: " + file.getSize() + " bytes");
-
-            String originalFilename = file.getOriginalFilename();
-            String fileExtension = ".jpg";
-
-            if (originalFilename != null && originalFilename.contains(".")) {
-                fileExtension = originalFilename.substring(originalFilename.lastIndexOf('.'));
-            }
-
-            if (!fileExtension.equalsIgnoreCase(".jpg")
-                    && !fileExtension.equalsIgnoreCase(".jpeg")
-                    && !fileExtension.equalsIgnoreCase(".png")) {
-                fileExtension = ".jpg";
-            }
-
-            String uniqueFileName = UUID.randomUUID().toString() + fileExtension;
-
-            Path filePath = Paths.get(directory.getAbsolutePath(), uniqueFileName);
-            System.out.println("Guardando imagen en: " + filePath.toString());
-
-            Files.copy(file.getInputStream(), filePath);
-            System.out.println("Imagen guardada correctamente");
-
+            // Subir imagen a Cloudinary
+            String imageUrl = cloudinaryService.uploadFile(file);
+            
             Producto nuevoProducto = new Producto();
             nuevoProducto.setNombreProducto(nombreProducto);
             nuevoProducto.setMontoPrecioProducto(BigDecimal.valueOf(montoPrecioProducto));
@@ -141,62 +104,22 @@ public class ProductoController {
             nuevoProducto.setCategoria(categoria);
 
             nuevoProducto.setEstadoProducto(estadoProducto == 1);
-            nuevoProducto.setImgProducto(uniqueFileName);
+            nuevoProducto.setImgProducto(imageUrl); // Guardamos la URL de Cloudinary
 
             Producto savedProducto = productoService.addProducto(nuevoProducto);
-            System.out.println("Producto guardado con ID: " + savedProducto.getIdProducto());
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Producto agregado con éxito con ID: " + savedProducto.getIdProducto());
             response.put("id", savedProducto.getIdProducto());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-
             e.printStackTrace();
-            System.err.println("Error completo: " + e.getMessage());
-            if (e.getCause() != null) {
-                System.err.println("Causa: " + e.getCause().getMessage());
-            }
-
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Collections.singletonMap("error", "Error detallado al guardar el producto o la imagen: " + e.getMessage()));
+                    .body(Collections.singletonMap("error", "Error al guardar el producto: " + e.getMessage()));
         }
     }
 
-    @GetMapping("/images/{imageName}")
-    public ResponseEntity<byte[]> getImage(@PathVariable String imageName) {
-        try {
-            Path filePath = Paths.get(IMAGE_DIRECTORY, imageName);
-            System.out.println("Buscando imagen en: " + filePath.toString());
-
-            if (!Files.exists(filePath)) {
-                System.err.println("Error: La imagen no existe en la ruta: " + filePath.toString());
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
-            }
-
-            byte[] image = Files.readAllBytes(filePath);
-
-            String contentType = Files.probeContentType(filePath);
-            if (contentType == null) {
-
-                if (imageName.toLowerCase().endsWith(".jpg") || imageName.toLowerCase().endsWith(".jpeg")) {
-                    contentType = "image/jpeg";
-                } else if (imageName.toLowerCase().endsWith(".png")) {
-                    contentType = "image/png";
-                } else {
-                    contentType = "application/octet-stream";
-                }
-            }
-
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .body(image);
-        } catch (IOException e) {
-            System.err.println("Error al encontrar la imagen: " + e.getMessage());
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
-        }
-    }
+  
 
     @PutMapping(value = "/actualizar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updateProducto(
@@ -213,9 +136,7 @@ public class ProductoController {
             @RequestParam("estadoProducto") int estadoProducto) {
 
         try {
-
             Producto productoExistente = productoService.ObtenerPorId(idProducto);
-
             Producto productoActualizar = new Producto();
             productoActualizar.setIdProducto(idProducto);
             productoActualizar.setNombreProducto(nombreProducto);
@@ -229,81 +150,32 @@ public class ProductoController {
             Categoria categoria = new Categoria();
             categoria.setIdCategoria(idCategoria);
             productoActualizar.setCategoria(categoria);
-
             productoActualizar.setEstadoProducto(estadoProducto == 1);
 
-            if (productoExistente != null && productoExistente.getImgProducto() != null) {
+            if (file != null && !file.isEmpty()) {
+                // Eliminar imagen anterior si existe
+                if (productoExistente != null && productoExistente.getImgProducto() != null) {
+                    cloudinaryService.deleteFile(productoExistente.getImgProducto());
+                }
+                
+                // Subir nueva imagen
+                String newImageUrl = cloudinaryService.uploadFile(file);
+                productoActualizar.setImgProducto(newImageUrl);
+            } else if (productoExistente != null) {
+                // Mantener la misma imagen si no se sube una nueva
                 productoActualizar.setImgProducto(productoExistente.getImgProducto());
             }
 
-            if (file != null && !file.isEmpty()) {
-
-                File directory = new File(IMAGE_DIRECTORY);
-
-                System.out.println("Directorio de imágenes: " + directory.getAbsolutePath());
-                System.out.println("Directorio existe: " + directory.exists());
-
-                if (!directory.exists()) {
-                    boolean created = directory.mkdirs();
-                    System.out.println("Directorio creado: " + created);
-
-                    if (!created) {
-                        throw new IOException("No se pudo crear el directorio de imágenes: " + directory.getAbsolutePath());
-                    }
-                }
-
-                if (productoExistente != null && productoExistente.getImgProducto() != null) {
-                    Path oldImagePath = Paths.get(directory.getAbsolutePath(), productoExistente.getImgProducto());
-                    System.out.println("Intentando eliminar imagen antigua: " + oldImagePath.toString());
-
-                    if (Files.exists(oldImagePath)) {
-                        Files.deleteIfExists(oldImagePath);
-                        System.out.println("Imagen antigua eliminada");
-                    } else {
-                        System.out.println("No se encontró la imagen antigua para eliminar");
-                    }
-                }
-
-                String originalFilename = file.getOriginalFilename();
-                String fileExtension = ".jpg";
-
-                if (originalFilename != null && originalFilename.contains(".")) {
-                    fileExtension = originalFilename.substring(originalFilename.lastIndexOf('.'));
-                }
-
-                if (!fileExtension.equalsIgnoreCase(".jpg")
-                        && !fileExtension.equalsIgnoreCase(".jpeg")
-                        && !fileExtension.equalsIgnoreCase(".png")) {
-                    fileExtension = ".jpg";
-                }
-
-                String uniqueFileName = UUID.randomUUID().toString() + fileExtension;
-
-                Path filePath = Paths.get(directory.getAbsolutePath(), uniqueFileName);
-                System.out.println("Guardando nueva imagen en: " + filePath.toString());
-
-                Files.copy(file.getInputStream(), filePath);
-                System.out.println("Nueva imagen guardada correctamente");
-
-                productoActualizar.setImgProducto(uniqueFileName);
-            }
-
             Producto productoActualizado = productoService.updateProducto(productoActualizar);
-            System.out.println("Producto actualizado con ID: " + productoActualizado.getIdProducto());
 
             Map<String, Object> response = new HashMap<>();
-            response.put("message", "Producto actualizado con éxito con ID: " + productoActualizado.getIdProducto());
+            response.put("message", "Producto actualizado con Ã©xito");
             response.put("id", productoActualizado.getIdProducto());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("Error completo en actualización: " + e.getMessage());
-            if (e.getCause() != null) {
-                System.err.println("Causa: " + e.getCause().getMessage());
-            }
-
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Collections.singletonMap("error", "Error detallado al actualizar el producto o la imagen: " + e.getMessage()));
+                    .body(Collections.singletonMap("error", "Error al actualizar el producto: " + e.getMessage()));
         }
     }
 
