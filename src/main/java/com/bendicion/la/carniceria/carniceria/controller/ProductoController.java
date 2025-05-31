@@ -1,16 +1,10 @@
 package com.bendicion.la.carniceria.carniceria.controller;
 
-import java.io.File;
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -38,8 +32,8 @@ import com.bendicion.la.carniceria.carniceria.service.ProductoService;
 @RequestMapping("/producto")
 public class ProductoController {
 
-     @Autowired
-    private CloudinaryService cloudinaryService; // Nuevo servicio
+    @Autowired
+    private CloudinaryService cloudinaryService;
 
     @Autowired
     private ProductoService productoService;
@@ -87,7 +81,6 @@ public class ProductoController {
         }
 
         try {
-            // Subir imagen a Cloudinary
             String imageUrl = cloudinaryService.uploadFile(file);
             
             Producto nuevoProducto = new Producto();
@@ -104,7 +97,7 @@ public class ProductoController {
             nuevoProducto.setCategoria(categoria);
 
             nuevoProducto.setEstadoProducto(estadoProducto == 1);
-            nuevoProducto.setImgProducto(imageUrl); // Guardamos la URL de Cloudinary
+            nuevoProducto.setImgProducto(imageUrl);
 
             Producto savedProducto = productoService.addProducto(nuevoProducto);
 
@@ -113,13 +106,10 @@ public class ProductoController {
             response.put("id", savedProducto.getIdProducto());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Collections.singletonMap("error", "Error al guardar el producto: " + e.getMessage()));
         }
     }
-
-  
 
     @PutMapping(value = "/actualizar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updateProducto(
@@ -136,15 +126,42 @@ public class ProductoController {
             @RequestParam("estadoProducto") int estadoProducto) {
 
         try {
+            // Validaciones básicas
+            if (nombreProducto == null || nombreProducto.trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Collections.singletonMap("error", "El nombre del producto es requerido"));
+            }
+            
+            if (descripcionProducto == null || descripcionProducto.trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Collections.singletonMap("error", "La descripción del producto es requerida"));
+            }
+            
+            if (codigoProducto == null || codigoProducto.trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Collections.singletonMap("error", "El código del producto es requerido"));
+            }
+            
+            if (tipoPesoProducto == null || tipoPesoProducto.trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Collections.singletonMap("error", "El tipo de peso es requerido"));
+            }
+            
             Producto productoExistente = productoService.ObtenerPorId(idProducto);
+            
+            if (productoExistente == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Collections.singletonMap("error", "Producto no encontrado"));
+            }
+            
             Producto productoActualizar = new Producto();
             productoActualizar.setIdProducto(idProducto);
-            productoActualizar.setNombreProducto(nombreProducto);
+            productoActualizar.setNombreProducto(nombreProducto.trim());
             productoActualizar.setMontoPrecioProducto(BigDecimal.valueOf(montoPrecioProducto));
-            productoActualizar.setDescripcionProducto(descripcionProducto);
+            productoActualizar.setDescripcionProducto(descripcionProducto.trim());
             productoActualizar.setCantidadProducto(cantidadProducto);
-            productoActualizar.setTipoPesoProducto(tipoPesoProducto);
-            productoActualizar.setCodigoProducto(codigoProducto);
+            productoActualizar.setTipoPesoProducto(tipoPesoProducto.trim());
+            productoActualizar.setCodigoProducto(codigoProducto.trim());
             productoActualizar.setStockProducto(stockProducto);
 
             Categoria categoria = new Categoria();
@@ -152,30 +169,42 @@ public class ProductoController {
             productoActualizar.setCategoria(categoria);
             productoActualizar.setEstadoProducto(estadoProducto == 1);
 
+            // Manejar la imagen
             if (file != null && !file.isEmpty()) {
-                // Eliminar imagen anterior si existe
-                if (productoExistente != null && productoExistente.getImgProducto() != null) {
-                    cloudinaryService.deleteFile(productoExistente.getImgProducto());
+                try {
+                    String newImageUrl = cloudinaryService.uploadFile(file);
+                    productoActualizar.setImgProducto(newImageUrl);
+                    
+                    // Eliminar imagen anterior si existe
+                    if (productoExistente.getImgProducto() != null && !productoExistente.getImgProducto().isEmpty()) {
+                        cloudinaryService.deleteFile(productoExistente.getImgProducto());
+                    }
+                    
+                } catch (Exception imageException) {
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body(Collections.singletonMap("error", "Error al procesar la imagen: " + imageException.getMessage()));
                 }
-                
-                // Subir nueva imagen
-                String newImageUrl = cloudinaryService.uploadFile(file);
-                productoActualizar.setImgProducto(newImageUrl);
-            } else if (productoExistente != null) {
-                // Mantener la misma imagen si no se sube una nueva
+            } else {
+                // Mantener la imagen existente
                 productoActualizar.setImgProducto(productoExistente.getImgProducto());
             }
 
             Producto productoActualizado = productoService.updateProducto(productoActualizar);
 
             Map<String, Object> response = new HashMap<>();
-            response.put("message", "Producto actualizado con Ã©xito");
+            response.put("message", "Producto actualizado con éxito");
             response.put("id", productoActualizado.getIdProducto());
+            
             return ResponseEntity.ok(response);
+            
         } catch (Exception e) {
-            e.printStackTrace();
+            String errorMessage = "Error al actualizar el producto: " + e.getMessage();
+            if (e.getCause() != null) {
+                errorMessage += " Causa: " + e.getCause().getMessage();
+            }
+            
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Collections.singletonMap("error", "Error al actualizar el producto: " + e.getMessage()));
+                    .body(Collections.singletonMap("error", errorMessage));
         }
     }
 
@@ -194,10 +223,8 @@ public class ProductoController {
         boolean estado = productoService.activarProducto(id);
 
         if (estado) {
-            System.out.println("producto activado: ID -->" + id);
             return ResponseEntity.ok(true);
         } else {
-            System.out.println("No se pudo activar el producto: ID -->" + id + " no encontrado.");
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(false);
         }
     }

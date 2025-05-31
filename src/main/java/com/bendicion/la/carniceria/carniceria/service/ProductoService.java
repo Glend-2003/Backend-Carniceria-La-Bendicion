@@ -12,10 +12,6 @@ import com.bendicion.la.carniceria.carniceria.jpa.ProductoRepository;
 
 import jakarta.transaction.Transactional;
 
-/**
- *
- * @author Jamel Sandí
- */
 @Service
 @Primary
 public class ProductoService implements IProductoService {
@@ -24,7 +20,7 @@ public class ProductoService implements IProductoService {
     private ProductoRepository productoRepo;
     
     @Autowired
-    private CloudinaryService cloudinaryService; // Nuevo servicio
+    private CloudinaryService cloudinaryService;
 
     @Override
     @Transactional
@@ -75,7 +71,6 @@ public class ProductoService implements IProductoService {
     @Transactional
     public Producto updateProducto(Producto producto) {
 
-        // Validaciones
         if (producto.getIdProducto() <= 0) {
             throw new IllegalArgumentException("ID de producto inválido");
         }
@@ -132,7 +127,6 @@ public class ProductoService implements IProductoService {
                 return false;
             }
 
-            // Eliminar la imagen de Cloudinary
             if (producto.getImgProducto() != null) {
                 cloudinaryService.deleteFile(producto.getImgProducto());
             }
