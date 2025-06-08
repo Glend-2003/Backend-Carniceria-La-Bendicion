@@ -1,0 +1,62 @@
+name: Deploy to Production
+
+# Se ejecuta solo cuando hay cambios en main después del merge automático
+on:
+  push:
+    branches: [ main ]
+  workflow_run:
+    workflows: ["TipoPago CI/CD Pipeline"]
+    types: [completed]
+    branches: [ main ]
+
+jobs:
+  deploy:
+    name: Desplegar a Producción
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' || github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        
+      - name: Descargar artefacto JAR
+        uses: actions/download-artifact@v3
+        with:
+          name: carniceria-app
+          path: ./deploy
+          
+      - name: Desplegar vía FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./deploy/
+          server-dir: /public_html/carniceria/
+          
+      - name: Notificar despliegue exitoso
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "🚀 Despliegue Exitoso - TipoPago en Producción"
+          body: |
+            🎉 ¡Despliegue completado exitosamente!
+            
+            📦 La aplicación con las funcionalidades de TipoPago ha sido desplegada a producción.
+            
+            🔗 Detalles:
+            - Fecha: $(date)
+            - Commit: ${{ github.sha }}
+            - Servidor: ${{ secrets.FTP_SERVER }}
+            
+            ✅ El módulo TipoPago está disponible en producción con las siguientes funcionalidades:
+            - Agregar tipo de pago
+            - Validaciones implementadas
+            - Pruebas unitarias verificadas
+            
+            🔍 Monitorea la aplicación para asegurar que todo funcione correctamente.
+          to: tu-email@example.com
+          from: deploy-carniceria@example.com
