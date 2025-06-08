@@ -50,7 +50,7 @@ public class TipoPagoControllerTest {
         when(tipoPagoService.addTipoPago(any(TipoPago.class))).thenReturn(tipoPagoTest);
 
         // Act & Assert
-        mockMvc.perform(post("/tipopago/agregar")
+        mockMvc.perform(post("http://localhost:8080/tipopago/agregar")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(tipoPagoTest)))
                 .andExpect(status().isOk())
@@ -67,7 +67,7 @@ public class TipoPagoControllerTest {
         when(tipoPagoService.addTipoPago(any(TipoPago.class))).thenReturn(tipoPagoIncompleto);
 
         // Act & Assert
-        mockMvc.perform(post("/tipopago/agregar")
+        mockMvc.perform(post("http://localhost:8080/tipopago/agregar")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(tipoPagoIncompleto)))
                 .andExpect(status().isOk());
@@ -80,7 +80,7 @@ public class TipoPagoControllerTest {
                 .thenThrow(new RuntimeException("Error de base de datos"));
 
         // Act & Assert
-        mockMvc.perform(post("/tipopago/agregar")
+        mockMvc.perform(post("http://localhost:8080/tipopago/agregar")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(tipoPagoTest)))
                 .andExpect(status().isInternalServerError())

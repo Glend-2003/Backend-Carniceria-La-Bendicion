@@ -84,7 +84,7 @@ jobs:
           Rama: ${{ github.ref }}
           
           El código está listo para fusionar a MAIN.
-        to: ${{ secrets.NOTIFICATION_EMAIL }}
+        to: degutierrezh02@gmail.com
         from: Carnicería CI/CD
         
     - name: Send Email Notification on Failure
@@ -108,7 +108,7 @@ jobs:
           Rama: ${{ github.ref }}
           
           Por favor, revisa los logs para más detalles.
-        to: ${{ secrets.NOTIFICATION_EMAIL }}
+        to: degutierrezh02@gmail.com
         from: Carnicería CI/CD
 
   deploy:
@@ -153,6 +153,5 @@ jobs:
           Commit: ${{ github.sha }}
           
           La nueva versión está disponible.
-        to: ${{ secrets.NOTIFICATION_EMAIL }}
+        to: degutierrezh02@gmail.com
         from: Carnicería CI/CD
-
