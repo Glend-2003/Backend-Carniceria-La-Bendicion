@@ -24,6 +24,7 @@ import com.bendicion.la.carniceria.carniceria.domain.Comentario;
 import com.bendicion.la.carniceria.carniceria.domain.Usuario;
 import com.bendicion.la.carniceria.carniceria.service.IComentarioService;
 import com.bendicion.la.carniceria.carniceria.service.IUsuarioService;
+import java.util.Arrays;
 
 @RestController
 @CrossOrigin(origins = "*")
@@ -123,6 +124,11 @@ public class ComentarioController {
             System.out.println("Usuario asociado: " + (comentario.getUsuario() != null ? comentario.getUsuario().getIdUsuario() : "Usuario es null"));
 
             System.out.println("Datos del comentario recibidos: " + comentario);
+            
+            if (containsSQLPatterns(comentario.getDescripcionComentario())) {
+                return ResponseEntity.badRequest()
+                    .body("Caracteres no permitidos detectados");
+    }
 
             Comentario nuevoComentario = iComentarioService.addComentario(comentario);
             if (nuevoComentario != null) {
@@ -198,4 +204,10 @@ public class ComentarioController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(false);
         }
     }
+    
+    private boolean containsSQLPatterns(String input) {
+    String[] sqlPatterns = {"'", ";", "--", "/", "/", "UNION", "SELECT", "DROP", "INSERT", "UPDATE"};
+    return Arrays.stream(sqlPatterns)
+        .anyMatch(pattern -> input.toUpperCase().contains(pattern.toUpperCase()));
+}
 }
