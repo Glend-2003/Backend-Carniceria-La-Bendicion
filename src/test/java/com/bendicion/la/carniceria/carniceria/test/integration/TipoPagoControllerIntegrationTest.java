@@ -25,10 +25,14 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bendicion.la.carniceria.carniceria.domain.TipoPago;
 import com.bendicion.la.carniceria.carniceria.jpa.TipoPagoRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.bendicion.la.carniceria.carniceria.TestMailConfig;
+import org.springframework.context.annotation.Import;
+
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(TestMailConfig.class)
 public class TipoPagoControllerIntegrationTest {
 
     @Autowired

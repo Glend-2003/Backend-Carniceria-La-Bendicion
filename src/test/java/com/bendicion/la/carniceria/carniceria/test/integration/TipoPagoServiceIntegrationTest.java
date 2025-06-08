@@ -14,9 +14,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bendicion.la.carniceria.carniceria.domain.TipoPago;
 import com.bendicion.la.carniceria.carniceria.service.TipoPagoService;
+import com.bendicion.la.carniceria.carniceria.TestMailConfig;
+import org.springframework.context.annotation.Import;
+
 
 @SpringBootTest
 @Transactional
+@Import(TestMailConfig.class)
 public class TipoPagoServiceIntegrationTest {
 
     @Autowired
