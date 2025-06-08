@@ -2,9 +2,9 @@ name: CI/CD Pipeline - Carnicería La Bendición
 
 on:
   push:
-    branches: [ DEV-QA ]
+    branches: [ main ]
   pull_request:
-    branches: [ DEV-QA ]
+    branches: [ main ]
 
 jobs:
   test:
