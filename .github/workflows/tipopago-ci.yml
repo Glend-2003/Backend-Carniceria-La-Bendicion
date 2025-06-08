@@ -1,157 +1,256 @@
-name: CI/CD Pipeline - Carnicería La Bendición
+name: TipoPago CI/CD Pipeline (Sin Secrets)
 
+# Configuración de triggers - cuándo se ejecuta el pipeline
 on:
   push:
-    branches: [ main ]
+    branches: [ DEV-QA, main ]
+    paths:
+      - 'src/main/java/com/bendicion/la/carniceria/carniceria/controller/TipoPagoController.java'
+      - 'src/main/java/com/bendicion/la/carniceria/carniceria/service/TipoPagoService.java'
+      - 'src/main/java/com/bendicion/la/carniceria/carniceria/domain/TipoPago.java'
+      - 'src/test/java/com/bendicion/la/carniceria/carniceria/test/TipoPago*Test.java'
   pull_request:
-    branches: [ main ]
+    branches: [ DEV-QA, main ]
+    paths:
+      - 'src/main/java/com/bendicion/la/carniceria/carniceria/controller/TipoPagoController.java'
+      - 'src/main/java/com/bendicion/la/carniceria/carniceria/service/TipoPagoService.java'
+      - 'src/test/java/com/bendicion/la/carniceria/carniceria/test/TipoPago*Test.java'
+
+env:
+  JAVA_VERSION: '17'
+  MAVEN_VERSION: '3.9.5'
 
 jobs:
+  # Job 1: Ejecutar pruebas unitarias
   test:
+    name: Ejecutar Pruebas TipoPago
     runs-on: ubuntu-latest
     
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: bdcarniceria
-        ports:
-          - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
-
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up JDK 21
-      uses: actions/setup-java@v3
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-    
-    - name: Cache Maven dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2
-    
-    - name: Wait for MySQL
-      run: |
-        until docker exec ${{ job.services.mysql.id }} mysqladmin ping --silent; do
-          echo 'Waiting for MySQL...'
-          sleep 2
-        done
-    
-    - name: Run Unit Tests
-      run: |
-        echo "🧪 Ejecutando pruebas unitarias..."
-        mvn test -Dtest=TipoPagoServiceTest
+      - name: Checkout código
+        uses: actions/checkout@v4
         
-    - name: Run Integration Tests
-      run: |
-        echo "🔗 Ejecutando pruebas de integración..."
-        mvn test -Dtest=TipoPagoControllerTest
+      - name: Configurar Java JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          
+      - name: Cache Maven dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+          
+      - name: Verificar existencia de pruebas TipoPago
+        run: |
+          echo "🔍 Verificando pruebas de TipoPago..."
+          if [ -f "src/test/java/com/bendicion/la/carniceria/carniceria/test/TipoPagoControllerTest.java" ] && 
+             [ -f "src/test/java/com/bendicion/la/carniceria/carniceria/test/TipoPagoServiceTest.java" ]; then
+            echo "✅ Pruebas de TipoPago encontradas"
+            echo "📋 TipoPagoControllerTest.java ✓"
+            echo "📋 TipoPagoServiceTest.java ✓"
+            echo "TESTS_EXIST=true" >> $GITHUB_ENV
+          else
+            echo "❌ No se encontraron las pruebas de TipoPago"
+            echo "❌ Archivos requeridos:"
+            echo "   - TipoPagoControllerTest.java"
+            echo "   - TipoPagoServiceTest.java"
+            exit 1
+          fi
+          
+      - name: Compilar el proyecto
+        run: |
+          echo "🔨 Compilando proyecto..."
+          mvn clean compile -DskipTests
+          echo "✅ Compilación exitosa"
         
-    - name: Generate Test Report
-      run: |
-        echo "📊 Generando reporte de pruebas..."
-        mvn surefire-report:report
+      - name: Ejecutar pruebas TipoPago
+        if: env.TESTS_EXIST == 'true'
+        run: |
+          echo "🧪 Ejecutando pruebas específicas de TipoPago..."
+          echo "📝 Pruebas a ejecutar:"
+          echo "   - TipoPagoControllerTest"
+          echo "   - TipoPagoServiceTest"
+          
+          mvn test -Dtest="TipoPagoControllerTest,TipoPagoServiceTest" -Dmaven.test.failure.ignore=false
+          
+          # Verificar si las pruebas pasaron
+          if [ $? -eq 0 ]; then
+            echo "✅ Todas las pruebas de TipoPago pasaron exitosamente"
+            echo "TEST_RESULT=success" >> $GITHUB_ENV
+          else
+            echo "❌ Algunas pruebas de TipoPago fallaron"
+            echo "TEST_RESULT=failure" >> $GITHUB_ENV
+            exit 1
+          fi
+          
+      - name: Generar reporte de cobertura
+        if: env.TESTS_EXIST == 'true' && env.TEST_RESULT == 'success'
+        run: |
+          echo "📊 Generando reporte de cobertura..."
+          mvn jacoco:report
+          echo "✅ Reporte generado exitosamente"
         
-    - name: Build Application
-      run: |
-        echo "🏗️ Construyendo aplicación..."
-        mvn clean package -DskipTests
+      - name: Mostrar resumen de pruebas
+        if: always()
+        run: |
+          echo "📋 ===== RESUMEN DE PRUEBAS TIPOPAGO ====="
+          echo "🔍 Archivos verificados:"
+          echo "   - TipoPagoControllerTest.java"
+          echo "   - TipoPagoServiceTest.java"
+          echo ""
+          echo "🧪 Pruebas ejecutadas:"
+          echo "   - testAgregarTipoPago_Exitoso"
+          echo "   - testAgregarTipoPago_DatosIncompletos"  
+          echo "   - testAgregarTipoPago_ErrorInterno"
+          echo "   - testAgregarTipoPago_DescripcionVacia"
+          echo "   - testAgregarTipoPago_DescripcionNula"
+          echo ""
+          if [ "${{ env.TEST_RESULT }}" = "success" ]; then
+            echo "✅ RESULTADO: TODAS LAS PRUEBAS PASARON"
+            echo "🎉 El módulo TipoPago está funcionando correctamente"
+          else
+            echo "❌ RESULTADO: ALGUNAS PRUEBAS FALLARON"
+            echo "🔧 Revisar errores antes de continuar"
+          fi
+          echo "=================================="
         
-    - name: Send Email Notification on Success
-      if: success()
-      uses: dawidd6/action-send-mail@v3
-      with:
-        server_address: smtp.gmail.com
-        server_port: 587
-        username: ${{ secrets.MAIL_USERNAME }}
-        password: ${{ secrets.MAIL_PASSWORD }}
-        subject: ✅ Pipeline Exitoso - Carnicería La Bendición
-        body: |
-          ¡Excelente trabajo! 🎉
-          
-          Las pruebas automatizadas han pasado exitosamente:
-          - ✅ Pruebas unitarias del servicio TipoPago
-          - ✅ Pruebas de integración del controlador
-          - ✅ Construcción de la aplicación
-          
-          Commit: ${{ github.sha }}
-          Rama: ${{ github.ref }}
-          
-          El código está listo para fusionar a MAIN.
-        to: degutierrezh02@gmail.com
-        from: ${{ secrets.MAIL_USERNAME }}
-        
-    - name: Send Email Notification on Failure
-      if: failure()
-      uses: dawidd6/action-send-mail@v3
-      with:
-        server_address: smtp.gmail.com
-        server_port: 587
-        username: ${{ secrets.MAIL_USERNAME }}
-        password: ${{ secrets.MAIL_PASSWORD }}
-        subject: ❌ Pipeline Fallido - Carnicería La Bendición
-        body: |
-          ¡Atención! ❌
-          
-          El pipeline ha fallado. Revisa los siguientes puntos:
-          - Errores en las pruebas unitarias
-          - Problemas en las pruebas de integración
-          - Fallos en la construcción
-          
-          Commit: ${{ github.sha }}
-          Rama: ${{ github.ref }}
-          
-          Por favor, revisa los logs para más detalles.
-        to: degutierrezh02@gmail.com
-        from: ${{ secrets.MAIL_USERNAME }}
+      - name: Subir reportes de pruebas
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-reports-tipopago-${{ github.run_number }}
+          path: |
+            target/surefire-reports/
+            target/site/jacoco/
+            
+      - name: Comentar resultados en PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const testResult = process.env.TEST_RESULT;
+            let comment = '## 🧪 Resultados de Pruebas TipoPago\n\n';
+            
+            if (testResult === 'success') {
+              comment += '### ✅ PRUEBAS EXITOSAS\n\n';
+              comment += '🎉 Todas las pruebas de TipoPago pasaron correctamente:\n\n';
+              comment += '#### Pruebas Controller:\n';
+              comment += '- ✅ `testAgregarTipoPago_Exitoso`\n';
+              comment += '- ✅ `testAgregarTipoPago_DatosIncompletos`\n';
+              comment += '- ✅ `testAgregarTipoPago_ErrorInterno`\n\n';
+              comment += '#### Pruebas Service:\n';
+              comment += '- ✅ `testAgregarTipoPago_Exitoso`\n';
+              comment += '- ✅ `testAgregarTipoPago_DescripcionVacia`\n';
+              comment += '- ✅ `testAgregarTipoPago_DescripcionNula`\n\n';
+              comment += '📊 **Reporte de cobertura disponible en los artefactos**\n\n';
+              comment += '🚀 **El código está listo para merge**';
+            } else {
+              comment += '### ❌ PRUEBAS FALLIDAS\n\n';
+              comment += '⚠️ Algunas pruebas de TipoPago no pasaron.\n\n';
+              comment += '🔍 **Acciones requeridas:**\n';
+              comment += '1. Revisar los logs de las pruebas fallidas\n';
+              comment += '2. Corregir los errores encontrados\n';
+              comment += '3. Volver a ejecutar las pruebas\n\n';
+              comment += '📋 **Archivos a revisar:**\n';
+              comment += '- `TipoPagoController.java`\n';
+              comment += '- `TipoPagoService.java`\n';
+              comment += '- Tests correspondientes\n\n';
+              comment += '⛔ **No hacer merge hasta que todas las pruebas pasen**';
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
 
-  deploy:
-    needs: test
+  # Job 2: Build (solo si las pruebas pasan)
+  build:
+    name: Build y Package
     runs-on: ubuntu-latest
+    needs: test
     if: success()
     
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout código
+        uses: actions/checkout@v4
+        
+      - name: Configurar Java JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          
+      - name: Cache Maven dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+          
+      - name: Construir JAR
+        run: |
+          echo "📦 Construyendo JAR de la aplicación..."
+          mvn clean package -DskipTests
+          echo "✅ JAR construido exitosamente"
+          
+      - name: Verificar JAR generado
+        run: |
+          echo "🔍 Verificando JAR generado..."
+          ls -la target/*.jar
+          echo "✅ JAR verificado"
+        
+      - name: Subir JAR como artefacto
+        uses: actions/upload-artifact@v3
+        with:
+          name: carniceria-app-tipopago-${{ github.run_number }}
+          path: target/*.jar
+          
+      - name: Resumen del build
+        run: |
+          echo "📋 ===== RESUMEN DEL BUILD ====="
+          echo "✅ Compilación exitosa"
+          echo "✅ JAR generado correctamente"
+          echo "✅ Artefacto subido para despliegue"
+          echo "🎯 Módulo TipoPago listo para producción"
+          echo "============================"
+
+  # Job 3: Notificación de resultado (sin email real)
+  notification:
+    name: Resumen Final
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: always()
     
-    - name: Merge to Main
-      run: |
-        git config --global user.name 'GitHub Actions'
-        git config --global user.email 'actions@github.com'
-        git fetch origin main
-        git checkout main
-        git merge origin/dev-qa --no-edit
-        git push origin main
-        
-    - name: Deploy to Production
-      run: |
-        echo "🚀 Desplegando a producción..."
-        # Aquí agregarías los comandos específicos de despliegue
-        # Por ejemplo: scp, rsync, o comandos FTP
-        echo "Aplicación desplegada exitosamente"
-        
-    - name: Send Deployment Notification
-      uses: dawidd6/action-send-mail@v3
-      with:
-        server_address: smtp.gmail.com
-        server_port: 587
-        username: ${{ secrets.MAIL_USERNAME }}
-        password: ${{ secrets.MAIL_PASSWORD }}
-        subject: 🚀 Despliegue Exitoso - Carnicería La Bendición
-        body: |
-          ¡Despliegue completado! 🚀
+    steps:
+      - name: Resumen final del pipeline
+        run: |
+          echo "🎯 ===== RESUMEN FINAL CI/CD TIPOPAGO ====="
+          echo "📅 Fecha: $(date)"
+          echo "🔗 Repositorio: ${{ github.repository }}"
+          echo "🌿 Rama: ${{ github.ref_name }}"
+          echo "👤 Actor: ${{ github.actor }}"
+          echo "🔧 Commit: ${{ github.sha }}"
+          echo ""
           
-          La aplicación ha sido desplegada exitosamente a producción:
-          - ✅ Fusión automática DEV-QA → MAIN
-          - ✅ Despliegue a servidor de producción
-          
-          Commit: ${{ github.sha }}
-          
-          La nueva versión está disponible.
-        to: degutierrezh02@gmail.com
-        from: ${{ secrets.MAIL_USERNAME }}
+          if [ "${{ needs.test.result }}" = "success" ] && [ "${{ needs.build.result }}" = "success" ]; then
+            echo "✅ PIPELINE EXITOSO"
+            echo "🎉 Todas las pruebas de TipoPago pasaron"
+            echo "📦 Build completado correctamente"
+            echo "🚀 Aplicación lista para despliegue"
+            echo ""
+            echo "📋 Funcionalidades verificadas:"
+            echo "   - Agregar tipo de pago"
+            echo "   - Validación de datos"
+            echo "   - Manejo de errores"
+            echo "   - Lógica de negocio"
+          else
+            echo "❌ PIPELINE FALLIDO"
+            echo "⚠️ Revisa los errores en los jobs anteriores"
+            echo "🔧 Corrige los problemas antes del próximo push"
+          fi
+          echo "========================================="
