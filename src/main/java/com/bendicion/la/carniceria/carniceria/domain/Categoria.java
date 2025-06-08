@@ -25,6 +25,15 @@ public class Categoria {
     @Column(name = "estadoCategoria")
     private boolean estadoCategoria;
 
+    public Categoria(){}
+
+    public Categoria(int idCategoria, String nombreCategoria, String descripcionCategoria, boolean estadoCategoria){
+        this.idCategoria = idCategoria;
+        this.nombreCategoria = nombreCategoria;
+        this.descripcionCategoria = descripcionCategoria;
+        this.estadoCategoria = estadoCategoria;
+    }
+
     public int getIdCategoria() {
         return idCategoria;
     }

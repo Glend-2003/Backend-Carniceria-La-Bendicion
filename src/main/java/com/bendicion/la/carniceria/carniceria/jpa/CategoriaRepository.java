@@ -12,7 +12,7 @@ import com.bendicion.la.carniceria.carniceria.domain.Categoria;
 
 @Repository
 public interface CategoriaRepository extends JpaRepository<Categoria, Integer> {
-
+        
     @Query(value = "{call spAgregarCategoria(:nombreCategoria, :descripcionCategoria, :estadoCategoria)}", nativeQuery = true)
     void saveProcedureCategoria(
             @Param("nombreCategoria") String nombreCategoria,
