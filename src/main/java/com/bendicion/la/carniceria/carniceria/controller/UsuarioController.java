@@ -1,5 +1,6 @@
 package com.bendicion.la.carniceria.carniceria.controller;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +46,18 @@ public class UsuarioController {
     @PostMapping("/agregar")
     public ResponseEntity<?> addUsuario(@RequestBody Usuario usuario) {
         try {
+            // VALIDACIÓN DE SEGURIDAD - SQL INJECTION
+            if (containsSQLPatterns(usuario.getNombreUsuario()) ||
+                containsSQLPatterns(usuario.getPrimerApellido()) ||
+                containsSQLPatterns(usuario.getSegundoApellido()) ||
+                containsSQLPatterns(usuario.getCorreoUsuario())) {
+                
+                System.out.println("⚠️ INTENTO DE SQL INJECTION DETECTADO - Endpoint: /agregar");
+                System.out.println("Datos sospechosos: " + usuario);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Collections.singletonMap("error", "Caracteres no permitidos detectados en los datos"));
+            }
+
             Usuario nuevoUsuario = iUsuarioService.addUsuario(usuario);
             System.out.println("Usuario agregado: ID -->" + usuario.getIdUsuario() + ", Nombre -->" + usuario.getNombreUsuario() + ", Apellidos -->" + usuario.getPrimerApellido() + " " + usuario.getSegundoApellido() + usuario.isEstadoUsuario());
 
@@ -62,7 +75,29 @@ public class UsuarioController {
     @PostMapping("/registrar")
     public ResponseEntity<?> registrarUsuario(@RequestBody Usuario usuario) {
         try {
-            System.out.println("Datos del usuario recibidos: " + usuario);
+            // VALIDACIÓN DE SEGURIDAD - SQL INJECTION
+            if (containsSQLPatterns(usuario.getNombreUsuario()) ||
+                containsSQLPatterns(usuario.getPrimerApellido()) ||
+                containsSQLPatterns(usuario.getSegundoApellido()) ||
+                containsSQLPatterns(usuario.getCorreoUsuario())) {
+                
+                System.out.println("⚠️ INTENTO DE SQL INJECTION DETECTADO - Endpoint: /registrar");
+                System.out.println("Usuario malicioso: " + usuario.getCorreoUsuario());
+                System.out.println("Nombre: " + usuario.getNombreUsuario());
+                System.out.println("Primer Apellido: " + usuario.getPrimerApellido());
+                System.out.println("Segundo Apellido: " + usuario.getSegundoApellido());
+                
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Error: Caracteres no permitidos detectados. Por favor, revise los datos ingresados.");
+            }
+
+            // VALIDACIÓN ADICIONAL DE EMAIL
+            if (!isValidEmail(usuario.getCorreoUsuario())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Error: Formato de correo electrónico inválido.");
+            }
+
+            System.out.println("✅ Datos del usuario validados correctamente: " + usuario.getCorreoUsuario());
             iUsuarioService.registerUsuario(usuario);
             return ResponseEntity.ok("Usuario registrado con éxito");
         } catch (Exception e) {
@@ -73,6 +108,18 @@ public class UsuarioController {
     @PutMapping("/actualizar")
     public ResponseEntity<?> updateUsuario(@RequestBody Usuario usuario) {
         try {
+            // VALIDACIÓN DE SEGURIDAD - SQL INJECTION
+            if (containsSQLPatterns(usuario.getNombreUsuario()) ||
+                containsSQLPatterns(usuario.getPrimerApellido()) ||
+                containsSQLPatterns(usuario.getSegundoApellido()) ||
+                containsSQLPatterns(usuario.getCorreoUsuario())) {
+                
+                System.out.println("⚠️ INTENTO DE SQL INJECTION DETECTADO - Endpoint: /actualizar");
+                System.out.println("Datos sospechosos: " + usuario);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Collections.singletonMap("error", "Caracteres no permitidos detectados en los datos"));
+            }
+
             Usuario usuarioActualizado = iUsuarioService.updateUsuario(usuario);
             System.out.println("Usuario actualizado: ID -->" + usuario.getIdUsuario() + ", Nombre -->" + usuario.getNombreUsuario() + ", Apellidos -->" + usuario.getPrimerApellido() + " " + usuario.getSegundoApellido() + usuario.isEstadoUsuario());
 
@@ -109,6 +156,23 @@ public class UsuarioController {
         if (correo == null || correo.trim().isEmpty()) {
             System.out.println("Error: El campo de correo está vacío o es nulo");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("El campo de correo no puede estar vacío");
+        }
+
+        // VALIDACIÓN DE SEGURIDAD - SQL INJECTION EN LOGIN
+        if (containsSQLPatterns(correo) || containsSQLPatterns(contrasenia)) {
+            System.out.println("⚠️ INTENTO DE SQL INJECTION DETECTADO - Endpoint: /login");
+            System.out.println("Correo sospechoso: " + correo);
+            System.out.println("Contraseña sospechosa: [CENSURADA]");
+            System.out.println("IP del atacante: " + getClientIP());
+            
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("Error: Caracteres no permitidos detectados en las credenciales.");
+        }
+
+        // VALIDACIÓN ADICIONAL DE EMAIL
+        if (!isValidEmail(correo)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("Error: Formato de correo electrónico inválido.");
         }
 
         Usuario usuario = iUsuarioService.validateLogin(correo, contrasenia);
@@ -150,6 +214,13 @@ public class UsuarioController {
     @PutMapping("/actualizarContrasena")
     public ResponseEntity<?> updateContrasena(@RequestBody Usuario usuario) {
         try {
+            // VALIDACIÓN DE SEGURIDAD BÁSICA
+            if (containsSQLPatterns(usuario.getCorreoUsuario())) {
+                System.out.println("⚠️ INTENTO DE SQL INJECTION DETECTADO - Endpoint: /actualizarContrasena");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Collections.singletonMap("error", "Caracteres no permitidos detectados"));
+            }
+
             Usuario usuarioActualizado = iUsuarioService.actualizarContrasena(usuario);
             System.out.println("Contraseña actualizada con exito del Usuario: ID -->" + usuario.getIdUsuario());
 
@@ -198,6 +269,20 @@ public class UsuarioController {
                 return ResponseEntity.badRequest().body("El campo de correo no puede estar vacío");
             }
 
+            // VALIDACIÓN DE SEGURIDAD - SQL INJECTION
+            if (containsSQLPatterns(correoUsuario)) {
+                System.out.println("⚠️ INTENTO DE SQL INJECTION DETECTADO - Endpoint: /verificarCambioContrasena");
+                System.out.println("Correo sospechoso: " + correoUsuario);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Error: Caracteres no permitidos detectados en el correo.");
+            }
+
+            // VALIDACIÓN DE EMAIL
+            if (!isValidEmail(correoUsuario)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Error: Formato de correo electrónico inválido.");
+            }
+
             iUsuarioService.getCodigo(correoUsuario);
 
             return ResponseEntity.ok("Código de verificación enviado al correo: " + correoUsuario);
@@ -216,6 +301,13 @@ public class UsuarioController {
                 return ResponseEntity.badRequest().body("El código y la nueva contraseña son requeridos");
             }
 
+
+            if (containsSQLPatterns(numCodigo) || containsSQLPatterns(nuevaContrasenia)) {
+                System.out.println("⚠️ INTENTO DE SQL INJECTION DETECTADO - Endpoint: /cambiarContrasena");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Error: Caracteres no permitidos detectados.");
+            }
+
             if (nuevaContrasenia.length() < 8) {
                 return ResponseEntity.badRequest().body("La contraseña debe tener al menos 8 caracteres");
             }
@@ -231,6 +323,17 @@ public class UsuarioController {
     @PutMapping("/actualizarCredenciales")
     public ResponseEntity<?> actualizarCredenciales(@RequestBody Usuario usuario) {
         try {
+
+            if (containsSQLPatterns(usuario.getNombreUsuario()) ||
+                containsSQLPatterns(usuario.getPrimerApellido()) ||
+                containsSQLPatterns(usuario.getSegundoApellido()) ||
+                containsSQLPatterns(usuario.getCorreoUsuario())) {
+                
+                System.out.println("⚠️ INTENTO DE SQL INJECTION DETECTADO - Endpoint: /actualizarCredenciales");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Collections.singletonMap("error", "Caracteres no permitidos detectados en los datos"));
+            }
+
             Usuario nuevosCredenciales = iUsuarioService.actualizarCredenciales(usuario);
 
             Map<String, Object> response = new HashMap<>();
@@ -244,4 +347,27 @@ public class UsuarioController {
         }
     }
 
+
+    private boolean containsSQLPatterns(String input) {
+        if (input == null) return false;
+        
+        String[] sqlPatterns = {"'", ";", "--", "/*", "*/", "UNION", "SELECT", "DROP", "INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "EXEC", "EXECUTE"};
+        return Arrays.stream(sqlPatterns)
+            .anyMatch(pattern -> input.toUpperCase().contains(pattern.toUpperCase()));
+    }
+
+    private boolean isValidEmail(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            return false;
+        }
+        
+        // Regex básico para validar email
+        String emailRegex = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$";
+        return email.matches(emailRegex);
+    }
+
+    private String getClientIP() {
+        // Método para obtener IP del cliente (para logging de seguridad)
+        return "IP_NO_DISPONIBLE"; // Implementar según HttpServletRequest si es necesario
+    }
 }
