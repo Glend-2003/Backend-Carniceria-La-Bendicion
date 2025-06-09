@@ -126,6 +126,7 @@
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
             <version>4.0.0</version>
+            
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -137,21 +138,21 @@
     </dependencies>
 
     <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-        </plugins>
+    <plugins>
         <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-surefire-plugin</artifactId>
-            <version>3.0.0-M7</version>
-            <configuration>
-                <useSystemClassLoader>false</useSystemClassLoader>
-                <useManifestOnlyJar>false</useManifestOnlyJar>
-            </configuration>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
         </plugin>
-    </build>
+ <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.0.0-M7</version>
+        <configuration>
+            <useSystemClassLoader>false</useSystemClassLoader>
+            <useManifestOnlyJar>false</useManifestOnlyJar>
+        </configuration>
+    </plugin>
+        </plugins>
+</build>
 
 </project>
